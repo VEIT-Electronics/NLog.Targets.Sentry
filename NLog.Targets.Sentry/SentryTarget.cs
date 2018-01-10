@@ -74,7 +74,7 @@ namespace NLog.Targets
         [RequiredParameter]
         public string Dsn
         {
-            get { return this.dsn?.ToString(); }
+            get { return this.dsn == null ? null : this.dsn.ToString(); }
             set { this.dsn = new Dsn(value); }
         }
 
