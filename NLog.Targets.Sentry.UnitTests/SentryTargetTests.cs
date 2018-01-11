@@ -9,138 +9,142 @@ using System.Globalization;
 
 namespace NLog.Targets.Sentry.UnitTests
 {
-    [TestFixture]
-    class SentryTargetTests
-    {
-        [SetUp]
-        public void Setup()
-        {
-            LogManager.ThrowExceptions = true;
-        }
+   [TestFixture]
+   class SentryTargetTests
+   {
+      [SetUp]
+      public void Setup()
+      {
+         LogManager.ThrowExceptions = true;
+      }
 
-        [TearDown]
-        public void Teardown()
-        {
-            LogManager.ThrowExceptions = false;
-        }
+      [TearDown]
+      public void Teardown()
+      {
+         LogManager.ThrowExceptions = false;
+      }
 
-        [Test]
-        public void TestPublicConstructor()
-        {
-            // ReSharper disable ObjectCreationAsStatement
-            Assert.DoesNotThrow(() => new SentryTarget());
-            // ReSharper restore ObjectCreationAsStatement
-            Assert.Throws<NLogConfigurationException>(() =>
-            {
-                var sentryTarget = new SentryTarget();
-                var configuration = new LoggingConfiguration();
-                configuration.AddTarget("NLogSentry", sentryTarget);
-                configuration.LoggingRules.Add(new LoggingRule("*", LogLevel.Trace, sentryTarget));
-                LogManager.Configuration = configuration;
-            });
-        }
-
-        [Test]
-        public void TestBadDsn()
-        {
-            // ReSharper disable ObjectCreationAsStatement
-            Assert.Throws<ArgumentException>(() => new SentryTarget(null) { Dsn = "http://localhost" });
-            // ReSharper restore ObjectCreationAsStatement
-        }
-
-        [Test]
-        public void TestLoggingToSentry()
-        {
-            var sentryClient = new Mock<IRavenClient>();
-            ErrorLevel lErrorLevel = ErrorLevel.Debug;
-            IDictionary<string, string> lTags = null;
-            Exception lException = null;
-
-            sentryClient
-                .Setup(x => x.Capture(It.IsAny<SentryEvent>()))
-                .Callback((SentryEvent sentryEvent) =>
-                {
-                    lException = sentryEvent.Exception;
-                    lErrorLevel = sentryEvent.Level;
-                    lTags = sentryEvent.Tags;
-                })
-                .Returns("Done");
-
-            // Setup NLog
-            var sentryTarget = new SentryTarget(sentryClient.Object)
-            {
-                Dsn = "http://25e27038b1df4930b93c96c170d95527:d87ac60bb07b4be8908845b23e914dae@test/4",
-            };
+      [Test]
+      public void TestPublicConstructor()
+      {
+         // ReSharper disable ObjectCreationAsStatement
+         Assert.DoesNotThrow(() => new SentryTarget());
+         // ReSharper restore ObjectCreationAsStatement
+         Assert.Throws<NLogConfigurationException>(() =>
+         {
+            var sentryTarget = new SentryTarget();
             var configuration = new LoggingConfiguration();
             configuration.AddTarget("NLogSentry", sentryTarget);
             configuration.LoggingRules.Add(new LoggingRule("*", LogLevel.Trace, sentryTarget));
             LogManager.Configuration = configuration;
+         });
+      }
 
-            try
-            {
-                throw new Exception("Oh No!");
-            }
-            catch (Exception e)
-            {
-                var logger = LogManager.GetCurrentClassLogger();
-                logger.Error(e, "Error Message");
-            }
+      [Test]
+      public void TestBadDsn()
+      {
+         // ReSharper disable ObjectCreationAsStatement
+         Assert.Throws<ArgumentException>(() => new SentryTarget(null) { Dsn = "http://localhost" });
+         // ReSharper restore ObjectCreationAsStatement
+      }
 
-            Assert.IsNotNull(lException);
-            Assert.IsTrue(lException.Message == "Oh No!");
-            Assert.IsNotNull(lTags);
-            Assert.IsTrue(0 == lTags.Count);
-            Assert.IsTrue(lErrorLevel == ErrorLevel.Error);
-        }
+      [Test]
+      public void TestLoggingToSentry()
+      {
+         var sentryClient = new Mock<IRavenClient>();
+         ErrorLevel lErrorLevel = ErrorLevel.Debug;
+         IDictionary<string, string> lTags = null;
+         Exception lException = null;
+         string lMessage = null;
+         sentryClient
+             .Setup(x => x.Capture(It.IsAny<SentryEvent>()))
+             .Callback((SentryEvent sentryEvent) =>
+             {
+                lException = sentryEvent.Exception;
+                lErrorLevel = sentryEvent.Level;
+                lTags = sentryEvent.Tags;
+                lMessage = sentryEvent.Message;
+             })
+             .Returns("Done");
 
-        [Test]
-        public void TestLoggingToSentry_SendLogEventInfoPropertiesAsTags()
-        {
-            var sentryClient = new Mock<IRavenClient>();
-            ErrorLevel lErrorLevel = ErrorLevel.Debug;
-            IDictionary<string, string> lTags = null;
-            Exception lException = null;
+         // Setup NLog
+         var sentryTarget = new SentryTarget(sentryClient.Object)
+         {
+            Dsn = "http://25e27038b1df4930b93c96c170d95527:d87ac60bb07b4be8908845b23e914dae@test/4",
+            Layout = "${message}"
+         };
+         var configuration = new LoggingConfiguration();
+         configuration.AddTarget("NLogSentry", sentryTarget);
+         configuration.LoggingRules.Add(new LoggingRule("*", LogLevel.Trace, sentryTarget));
+         
+         LogManager.Configuration = configuration;
 
-            sentryClient
-                .Setup(x => x.Capture(It.IsAny<SentryEvent>()))
-                .Callback((SentryEvent sentryEvent) =>
-                {
-                    lException = sentryEvent.Exception;
-                    lErrorLevel = sentryEvent.Level;
-                    lTags = sentryEvent.Tags;
-                })
-                .Returns("Done");
+         try
+         {
+            throw new Exception("Oh No!");
+         }
+         catch (Exception e)
+         {
+            var logger = LogManager.GetCurrentClassLogger();
+            logger.Error(e, "Error Message");
+         }
 
-            // Setup NLog
-            var sentryTarget = new SentryTarget(sentryClient.Object)
-            {
-                Dsn = "http://25e27038b1df4930b93c96c170d95527:d87ac60bb07b4be8908845b23e914dae@test/4",
-                SendLogEventInfoPropertiesAsTags = true,
-            };
-            var configuration = new LoggingConfiguration();
-            configuration.AddTarget("NLogSentry", sentryTarget);
-            configuration.LoggingRules.Add(new LoggingRule("*", LogLevel.Trace, sentryTarget));
-            LogManager.Configuration = configuration;
+         Assert.IsNotNull(lException);
+         Assert.IsTrue(lException.Message == "Oh No!");
+         Assert.IsTrue(lMessage == "Error Message");
+         Assert.IsNotNull(lTags);
+         Assert.IsTrue(0 == lTags.Count);
+         Assert.IsTrue(lErrorLevel == ErrorLevel.Error);
+      }
 
-            var tag1Value = "abcde";
+      [Test]
+      public void TestLoggingToSentry_SendEventWithTags()
+      {
+         var sentryClient = new Mock<IRavenClient>();
+         ErrorLevel lErrorLevel = ErrorLevel.Debug;
+         IDictionary<string, string> lTags = null;
+         Exception lException = null;
+         string lMessage = null;
 
-            try
-            {
-                throw new Exception("Oh No!");
-            }
-            catch (Exception e)
-            {
-                var logger = LogManager.GetCurrentClassLogger();
+         sentryClient
+             .Setup(x => x.Capture(It.IsAny<SentryEvent>()))
+             .Callback((SentryEvent sentryEvent) =>
+             {
+                lException = sentryEvent.Exception;
+                lErrorLevel = sentryEvent.Level;
+                lTags = sentryEvent.Tags;
+                lMessage = sentryEvent.Message;
+             })
+             .Returns("Done");
 
-                var logEventInfo = LogEventInfo.Create(LogLevel.Error, "default", e, CultureInfo.InvariantCulture, "Error Message");
-                logEventInfo.Properties.Add("tag1", tag1Value);
-                logger.Log(logEventInfo);
-            }
+         // Setup NLog
+         var sentryTarget = new SentryTarget(sentryClient.Object)
+         {
+            Dsn = "http://25e27038b1df4930b93c96c170d95527:d87ac60bb07b4be8908845b23e914dae@test/4",
+            Layout = "${message}${processid:sentrytag=pid}"
+         };
+         var configuration = new LoggingConfiguration();
+         configuration.AddTarget("NLogSentry", sentryTarget);
+         configuration.LoggingRules.Add(new LoggingRule("*", LogLevel.Trace, sentryTarget));
+         LogManager.Configuration = configuration;
 
-            Assert.IsNotNull(lException);
-            Assert.IsTrue(lException.Message == "Oh No!");
-            Assert.IsTrue(lTags != null);
-            Assert.IsTrue(lErrorLevel == ErrorLevel.Error);
-        }
-    }
+         try
+         {
+            throw new Exception("Oh No!");
+         }
+         catch (Exception e)
+         {
+            var logger = LogManager.GetCurrentClassLogger();
+            logger.Error(e, "Error Message");
+         }
+
+         Assert.IsNotNull(lException);
+         Assert.IsTrue(lException.Message == "Oh No!");
+         Assert.IsTrue(lMessage == "Error Message");
+         Assert.IsNotNull(lTags);
+         Assert.IsTrue(1 == lTags.Count);
+         Assert.IsTrue(lTags.ContainsKey("pid"));
+         Assert.IsTrue(lErrorLevel == ErrorLevel.Error);
+      }
+   }
 }
