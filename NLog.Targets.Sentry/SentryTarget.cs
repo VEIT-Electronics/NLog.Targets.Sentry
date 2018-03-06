@@ -7,13 +7,14 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using NLog.Targets.Sentry;
 
 // ReSharper disable CheckNamespace
-
+[assembly: InternalsVisibleTo("NLog.Targets.Sentry.UnitTests")]
 namespace NLog.Targets
 // ReSharper restore CheckNamespace
-{
+{   
    [Target("Sentry")]
    public class SentryTarget : TargetWithLayout
    {
